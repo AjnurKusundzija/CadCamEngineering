@@ -1,0 +1,12 @@
+(defun dajJedinicnuCifru (broj)
+"DajJedinicu"
+(rem broj 10))
+
+(defun dajDeseticnuCifru (broj)
+"DajDeseticu"
+(rem (/ broj 10) 10))
+
+
+(defun saberiCifre (broj1 broj2)
+"D+J"
+(+ (dajJedinicnuCifru broj1) (dajDeseticnuCifru broj2)))
