@@ -1,0 +1,36 @@
+(defun polar-? (d a)
+  (polar '(0 0) (* a (/ pi 180.0)) d))  
+
+(defun Kompas (r)
+  (command "PLINE") 
+
+ 
+  (setq segmenti (list
+    (list (* r 1.0) 0)    
+    (list (* r 0.5) 15)   
+    (list (* r 0.5) 75)  
+    (list (* r 1.0) 90)   
+    (list (* r 0.5) 105)  
+    (list (* r 0.5) 165)  
+    (list (* r 1.0) 180)  
+    (list (* r 0.5) 195)  
+    (list (* r 0.5) 255)  
+    (list (* r 1.0) 270)  
+    (list (* r 0.5) 285)  
+    (list (* r 0.5) 345))) 
+
+  
+ (setq i 0)
+(setq n (length segmenti))
+
+(while (< i n)
+  (setq seg (nth i segmenti))  
+  (setq duzina (car seg)
+        ugao (cadr seg)
+        tacka (polar-? duzina ugao))
+  (command (list (car tacka) (cadr tacka))) 
+  (setq i (1+ i)))  
+
+
+  (command "C")  
+  (princ))
