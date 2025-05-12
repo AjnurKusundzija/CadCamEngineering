@@ -1,0 +1,120 @@
+zadaci sa vjezbe
+Private Sub CommandButton1_Click()
+Dim objekat As Acad3DSolid
+Dim centar(0 To 2) As Double
+Dim duzina As Double, sirina As Double, visina As Double
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+duzina = 5: sirina = 6: visina = 7
+Set objekat = ThisDrawing.ModelSpace.AddBox(centar, duzina, sirina, visina)
+objekat.Update
+
+End Sub
+
+Private Sub CommandButton2_Click()
+Dim objekat As Acad3DSolid
+Dim centar(0 To 2) As Double
+Dim r As Double, h As Double
+
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+r = 10: h = 5
+Set objekat = ThisDrawing.ModelSpace.AddCylinder(centar, r, h)
+objekat.Update
+
+End Sub
+
+Private Sub CommandButton3_Click()
+Dim objekat As Acad3DSolid
+Dim centar(0 To 2) As Double
+Dim r As Double
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+r = 10
+Set objekat = ThisDrawing.ModelSpace.AddSphere(centar, r)
+objekat.Update
+
+End Sub
+
+Private Sub CommandButton4_Click()
+Dim objekat As Acad3DSolid
+Dim centar(0 To 2) As Double
+Dim r As Double, h As Double
+
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+r = 10: h = 5
+Set objekat = ThisDrawing.ModelSpace.AddCone(centar, r, h)
+
+objekat.Update
+End Sub
+
+Private Sub CommandButton5_Click()
+Dim objekat As Acad3DSolid
+Dim centar(0 To 2) As Double
+Dim duzina As Double, sirina As Double, visina As Double
+duzina = 10: sirina = 5: visina = 2.5
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+Set objekat = ThisDrawing.ModelSpace.AddWedge(centar, duzina, sirina, visina)
+objekat.Update
+End Sub
+
+Private Sub CommandButton6_Click()
+Dim objekat As Acad3DSolid
+Dim centar(0 To 2) As Double
+Dim r1 As Double, r2 As Double
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+r1 = 10: r2 = 5
+Set objekat = ThisDrawing.ModelSpace.AddTorus(centar, r1, r2)
+objekat.Update
+
+
+End Sub
+
+Private Sub UserForm_Click()
+
+
+End Sub
+
+
+
+zadatak1
+Private Sub CommandButton1_Click()
+Dim sipka As Acad3DSolid
+Dim centar(0 To 2) As Double
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+Dim duzina As Double, sirina As Double, visina As Double
+duzina = 10: sirina = 2: visina = 2
+Set sipka = ThisDrawing.ModelSpace.AddBox(centar, duzina, sirina, visina)
+
+
+Dim kugla1 As Acad3DSolid
+Dim kugla2 As Acad3DSolid
+Dim centar1(0 To 2) As Double
+Dim centar2(0 To 2) As Double
+Dim r1 As Double, r2 As Double
+centar1(0) = 5.5: centar1(1) = 0: centar1(2) = 0
+centar2(0) = -5.5: centar2(1) = 0: centar2(2) = 0
+r1 = 2.5: r2 = 2.5
+Set kugla1 = ThisDrawing.ModelSpace.AddSphere(centar1, r1)
+Set kugla2 = ThisDrawing.ModelSpace.AddSphere(centar2, r2)
+kugla1.Update
+kugla2.Update
+sipka.Update
+
+End Sub
+
+zadatak2
+
+Private Sub CommandButton1_Click()
+Dim sfera As Acad3DSolid
+Dim kocka As Acad3DSolid
+Dim centar(0 To 2) As Double
+Dim radijus As Double: Dim stranica As Double
+centar(0) = 0: centar(1) = 0: centar(2) = 0
+radijus = 6
+stranica = 10
+Set kocka = ThisDrawing.ModelSpace.AddBox(centar, stranica, stranica, stranica)
+Set sfera = ThisDrawing.ModelSpace.AddSphere(centar, radijus)
+kocka.Update
+sfera.Update
+Call kocka.Boolean(acSubtraction, sfera)
+ThisDrawing.Regen True
+End Sub
+
