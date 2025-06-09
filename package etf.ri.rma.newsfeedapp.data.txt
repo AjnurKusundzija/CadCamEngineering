@@ -1,0 +1,175 @@
+package etf.ri.rma.newsfeedapp.data
+
+import android.util.Log
+import etf.ri.rma.newsfeedapp.dto.NewsItemDto
+import etf.ri.rma.newsfeedapp.dto.NewsResponse
+import etf.ri.rma.newsfeedapp.exceptions.InvalidUUIDException
+import etf.ri.rma.newsfeedapp.model.NewsItem
+import etf.ri.rma.newsfeedapp.util.CategoryMapper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.*
+
+object NewsDAO {
+
+    private const val TAG = "NewsDAO"
+    private const val API_KEY = "BEovF9RPKzTpn8zxxWOOqKcrQ1t6WsU7UetnJbod"
+    private const val LANGUAGE = "en"
+    private const val CACHE_DURATION_MS = 30_000L
+
+    private val allStoriesCache = mutableListOf<NewsItem>()
+    private val categoryTimestamps = mutableMapOf<String, Long>()
+    private val categoryCache = mutableMapOf<String, List<NewsItem>>()
+    private val similarStoriesCache = mutableMapOf<String, List<NewsItem>>()
+    private val initialNewsData = NewsData.newsItems
+    private var initialLoaded = false
+
+    fun getAllStories(): List<NewsItem> {
+        ensureInitialLoaded()
+        Log.d(TAG, "getAllStories() returned ${allStoriesCache.size} items")
+        return allStoriesCache.toList()
+    }
+
+    suspend fun getTopStoriesByCategory(category: String): List<NewsItem> = withContext(Dispatchers.IO) {
+        ensureInitialLoaded()
+        val now = System.currentTimeMillis()
+        val displayCategory = category
+        val apiCategory = CategoryMapper.toApiCategory(displayCategory)
+        val lastFetched = categoryTimestamps[apiCategory] ?: 0
+
+        Log.d(TAG, "getTopStoriesByCategory() called for category=$category (api=$apiCategory)")
+        if (now - lastFetched < CACHE_DURATION_MS && categoryCache[apiCategory] != null) {
+            Log.d(TAG, "Returning cached news for $apiCategory: ${categoryCache[apiCategory]?.size} items")
+            return@withContext categoryCache[apiCategory]!!
+        }
+
+        Log.d(TAG, "API poziv za kategoriju: $apiCategory, language=$LANGUAGE, api_token=$API_KEY")
+        val response: NewsResponse = try {
+            RetrofitInstance.newsApi.getTopStoriesByCategory(apiCategory, LANGUAGE, API_KEY)
+        } catch (e: Exception) {
+            Log.e(TAG, "API ERROR (${e.javaClass.simpleName}) za $apiCategory: ${e.message}")
+            throw e // Ili možeš vratiti praznu listu/poruku korisniku
+        }
+        Log.d(TAG, "API response: ${response.data?.size ?: 0} items received")
+
+        // 1. Mapiraj podatke (bez imageTags još)
+        val newsItems = response.data
+            ?.take(3)
+            ?.map { dto ->
+                NewsItem(
+                    uuid = dto.uuid,
+                    title = dto.title,
+                    snippet = dto.description,
+                    imageUrl = dto.image_url,
+                    publishedDate = dto.published_at,
+                    source = dto.source,
+                    category = dto.categories.firstOrNull() ?: "general",
+                    isFeatured = true,
+                    imageTags = arrayListOf()
+                )
+            } ?: emptyList()
+        Log.d(TAG, "Mapped $apiCategory: ${newsItems.size} news items to NewsItem objects")
+
+        // 2. Dohvati tagove iz Imagga za svaku vijest
+        val newsWithTags = newsItems.map { news ->
+            val tags = try {
+                ImaggaDAO.getTags(news.imageUrl.toString()).also {
+                    Log.d(TAG, "Imagga tags for ${news.title?.take(15)}...: $it")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Imagga ERROR for image ${news.imageUrl}: ${e.message}")
+                emptyList<String>()
+            }
+            news.copy(imageTags = ArrayList(tags))
+        }
+
+        // Dalje je sve isto kao do sada...
+        val previousCount = categoryCache[category]?.size ?: 0
+        val updatedCategoryList = (newsWithTags + (categoryCache[category] ?: emptyList()))
+            .distinctBy { it.uuid }
+        Log.d(TAG, "Updated category '$category' from $previousCount to ${updatedCategoryList.size} items")
+
+        categoryCache[apiCategory] = updatedCategoryList
+
+        newsWithTags.forEach { item ->
+            if (allStoriesCache.none { it.uuid == item.uuid }) {
+                allStoriesCache.add(0, item)
+                Log.d(TAG, "Added news '${item.title?.take(20)}...' to allStoriesCache")
+            } else {
+                Log.d(TAG, "News '${item.title?.take(20)}...' already in cache")
+            }
+        }
+
+        categoryTimestamps[apiCategory] = now
+        Log.d(TAG, "Returning ${updatedCategoryList.size} items for $apiCategory")
+        return@withContext updatedCategoryList
+    }
+
+    suspend fun getSimilarStories(uuid: String): List<NewsItem> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "getSimilarStories() called for uuid='$uuid'")
+        if (!isValidUUID(uuid)) throw InvalidUUIDException()
+
+        similarStoriesCache[uuid]?.let {
+            Log.d(TAG, "Returning cached similar stories for '$uuid' (${it.size} items)")
+            return@withContext it
+        }
+
+        val currentNews = allStoriesCache.find { it.uuid == uuid }
+            ?: throw InvalidUUIDException() // Nema vijesti sa tim UUID-om
+
+        val response: NewsResponse = try {
+            RetrofitInstance.newsApi.getSimilarStories(uuid, API_KEY)
+        } catch (e: Exception) {
+            Log.e(TAG, "API ERROR similarStories for $uuid: ${e.message}")
+            throw e
+        }
+        Log.d(TAG, "API response: ${response.data?.size ?: 0} similar items received")
+
+        val similar = response.data
+            ?.filter { it.uuid != uuid && (it.categories.firstOrNull() == currentNews.category) }
+            ?.take(2)
+            ?.map { dto ->
+                val news = NewsItem(
+                    uuid = dto.uuid,
+                    title = dto.title,
+                    snippet = dto.description,
+                    imageUrl = dto.image_url,
+                    publishedDate = dto.published_at,
+                    source = dto.source,
+                    category = dto.categories.firstOrNull() ?: "general",
+                    isFeatured = true,
+                    imageTags = arrayListOf()
+                )
+                val tags = try {
+                    ImaggaDAO.getTags(news.imageUrl.toString()).also {
+                        Log.d(TAG, "Imagga tags for similar '${news.title?.take(15)}...': $it")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Imagga ERROR for similar image ${news.imageUrl}: ${e.message}")
+                    emptyList<String>()
+                }
+                news.copy(imageTags = ArrayList(tags))
+            } ?: emptyList()
+        Log.d(TAG, "Returning ${similar.size} similar stories for uuid=$uuid")
+        similarStoriesCache[uuid] = similar
+        return@withContext similar
+    }
+
+    private fun ensureInitialLoaded() {
+        if (!initialLoaded) {
+            allStoriesCache.clear()
+            allStoriesCache.addAll(initialNewsData)
+            initialLoaded = true
+            Log.d(TAG, "Initial load: allStoriesCache initialized with ${initialNewsData.size} items")
+        }
+    }
+
+    private fun isValidUUID(uuid: String): Boolean {
+        return try {
+            UUID.fromString(uuid)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
