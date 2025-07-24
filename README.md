@@ -1,2 +1,2 @@
 # CCI
-Urađeni labovi iz predmeta CCI
+Tasks from practical drawings done in AutoCad
