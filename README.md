@@ -1,2 +1,2 @@
 # CCE
-Tasks from practical drawings done in AutoCad
+Practical drawings done in AutoCad
